@@ -6,10 +6,8 @@
 #-------------------------------------------------------------------------------
 
 # set wd
-# rm(list = ls())
-# setwd([[path_name_here]])
-
-setwd(paste0(getwd(), "/Output"))
+wd <- "C:/Users/gkonstan/OneDrive - Imperial College London/ICRF Imperial/Projects/climate-pipelines/"
+setwd(file.path(wd, "Output"))
 
 # libraries
 library(tidyverse)
