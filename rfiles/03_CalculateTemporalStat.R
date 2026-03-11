@@ -5,11 +5,12 @@
 
 #-------------------------------------------------------------------------------
 
+# set path
+wd <- "C:/Users/gkonstan/OneDrive - Imperial College London/ICRF Imperial/Projects/climate-pipelines/"
+setwd(file.path(wd, "Output"))
+
 library(tidyverse)
 library(FNN)
-
-# set path
-# setwd([[path_name_here]])
 
 ##
 ## Calculate the temporal stat
