@@ -1,13 +1,15 @@
 
 # Created 02.04.2025
 
-# Clean the ERA5 meteorology data in Sri Lanka
+# Clean the ERA5 meteorology data
 
 #-------------------------------------------------------------------------------
 
 # set wd
-wd <- "C:/Users/gkonstan/OneDrive - Imperial College London/ICRF Imperial/Projects/climate-pipelines/"
-setwd(file.path(wd, "Output"))
+# rm(list = ls())
+# setwd([[path_name_here]])
+
+setwd(paste0(getwd(), "/Output"))
 
 # libraries
 library(tidyverse)
@@ -17,23 +19,26 @@ library(terra)
 # function to retrieve daily statistic
 DailyStat <- function(start, stop, datenam, metric, stat, d = d){
   
+  # updated to "drop = FALSE" for when you are sumarising across a single hour (happens with some time zones)
+  # include weight (#of hours in that day accounted for) to allow for accurate summary calculations
+  
   if(stat == "mean"){
-    d_stat <- cbind(d[,c(1:2)], d[,-c(1:2)][,start:stop] %>% apply(., 1, mean, na.rm = TRUE))
+    d_stat <- cbind(d[,c(1:2)], d[,-c(1:2)][,start:stop, drop = FALSE] %>% apply(., 1, mean, na.rm = TRUE), "n_hours" = length(start:stop))
     colnames(d_stat)[3] <- paste(metric, stat, sep = "_")
   }
   
   if(stat == "min"){
-    d_stat <- cbind(d[,c(1:2)], d[,-c(1:2)][,start:stop] %>% apply(., 1, min, na.rm = TRUE))
+    d_stat <- cbind(d[,c(1:2)], d[,-c(1:2)][,start:stop, drop = FALSE] %>% apply(., 1, min, na.rm = TRUE), "n_hours" = length(start:stop))
     colnames(d_stat)[3] <- paste(metric, stat, sep = "_")
   }
   
   if(stat == "max"){
-    d_stat <- cbind(d[,c(1:2)], d[,-c(1:2)][,start:stop] %>% apply(., 1, max, na.rm = TRUE))
+    d_stat <- cbind(d[,c(1:2)], d[,-c(1:2)][,start:stop, drop = FALSE] %>% apply(., 1, max, na.rm = TRUE), "n_hours" = length(start:stop))
     colnames(d_stat)[3] <- paste(metric, stat, sep = "_")
   }
   
   if(stat == "sum"){
-    d_stat <- cbind(d[,c(1:2)], d[,-c(1:2)][,start:stop] %>% apply(., 1, sum, na.rm = TRUE))
+    d_stat <- cbind(d[,c(1:2)], d[,-c(1:2)][,start:stop, drop = FALSE] %>% apply(., 1, sum, na.rm = TRUE), "n_hours" = length(start:stop))
     colnames(d_stat)[3] <- paste(metric, stat, sep = "_")
   }
   
@@ -50,11 +55,13 @@ ExtractDailyStat <- function(Z, stat, metric, dailystat = TRUE){
   d[,-c(1:2)] <- d[,-c(1:2)] - 273.15
   
   hour_tr <- as.POSIXct(sub(".*=", "", colnames(d)[-c(1:2)]) %>% as.numeric(), origin = "1970-01-01")
-  hour_tr <- format(hour_tr, format='%Y-%m-%d', tz = "Asia/Colombo")
+  hour_tr <- format(hour_tr, format='%Y-%m-%d', tz = "Europe/Madrid")
   
   if(dailystat == TRUE){
     # define the start/end points of each date
     dat <- as.data.frame(table(hour_tr))
+    
+    print(paste("unique time:", nrow(dat)))
     
     start <- numeric(nrow(dat))
     stop <- numeric(nrow(dat))
@@ -70,12 +77,13 @@ ExtractDailyStat <- function(Z, stat, metric, dailystat = TRUE){
     
     dat$start <- start
     dat$stop <- stop
-    # start = dat[1,3]; stop = dat[1,4]; datenam = dat[1,1]; stat = stat; d = d; metric = metric
+    
     # run the DailyStat across the data
     GetStat <- 
       apply(dat, 1, function(X){
+        # k <- 33
+        # start = dat[k,3]; stop = dat[k,4]; datenam = dat[k,1]; stat = stat; d = d; metric = metric
         return(DailyStat(start = X[3], stop = X[4], datenam = X[1], stat = stat, d = d, metric = metric))
-        
       } 
       ) 
     
@@ -97,19 +105,25 @@ ExtractDailyStat <- function(Z, stat, metric, dailystat = TRUE){
 
 
 metric_loop <- "2m_temperature" 
-stat_loop <- c("mean", "min", "max")
+stat_loop <- c("mean", "max") #, "min", "max"
 i <- j <- 1
 
 for(i in 1:length(metric_loop)){
+  
+  print(metric_loop[i])
+  
+  # read the metric files
+  files2read <- list.files()[list.files() %>% startsWith(.,metric_loop[i])]
+  meteo_extract <- lapply(files2read, terra::rast) 
+  
+  print(paste0(length(meteo_extract), " temprature rastas read"))
+  
   for(j in 1:length(stat_loop)){
     
-    print(metric_loop[i]); print(stat_loop[j])
-    
-    # read the files
-    files2read <- list.files()[list.files() %>% startsWith(.,metric_loop[i])]
-    meteo_extract <- lapply(files2read, terra::rast) 
+    print(stat_loop[j])
     
     # run the function
+    # Z = meteo_extract[[1]]; stat = stat_loop[j]; metric = metric_loop[i]
     res <- lapply(meteo_extract, function(Z) ExtractDailyStat(Z = Z, stat = stat_loop[j], metric = metric_loop[i]))
     res <- do.call(rbind, res) 
     

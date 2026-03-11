@@ -9,10 +9,7 @@ library(tidyverse)
 library(FNN)
 
 # set path
-path <- "C:/Users/gkonstan/OneDrive - Imperial College London/ICRF Imperial/Projects/climate-pipelines/"
-setwd(path)
-
-
+# setwd([[path_name_here]])
 
 ##
 ## Calculate the temporal stat
@@ -142,12 +139,28 @@ CalculateTemporalStat <- function(metric, stat, temporal, weekly_stat, week_type
   
   meteo$date <- as.Date(meteo$date)
   
-  # there might be duplicates due to the time zone. 
-  meteo %>% 
-    dplyr::group_by(x, y, space_id, date) %>% 
-    dplyr::summarise(variable = mean(variable)) %>% 
-    ungroup() -> meteo
-  
+  # days might have been split across files due to the time zone adjustment - combine with weights (number of hours) where needed
+  if (stat == "mean") {
+    meteo %>% 
+      dplyr::group_by(x, y, space_id, date) %>%
+      dplyr::summarise(variable = weighted.mean(variable, n_hours)) %>% 
+      ungroup() -> meteo
+  } else if (stat == "min") {
+    meteo %>% 
+      dplyr::group_by(x, y, space_id, date) %>%
+      dplyr::summarise(variable = min(variable)) %>% 
+      ungroup() -> meteo
+  } else if (stat == "max") {
+    meteo %>% 
+      dplyr::group_by(x, y, space_id, date) %>%
+      dplyr::summarise(variable = max(variable)) %>% 
+      ungroup() -> meteo
+  } else if (stat == "sum") {
+    meteo %>% 
+      dplyr::group_by(x, y, space_id, date) %>%
+      dplyr::summarise(variable = sum(variable)) %>% 
+      ungroup() -> meteo
+  }
   
   # make sure we have all the dates
   expand.grid(
@@ -173,7 +186,7 @@ CalculateTemporalStat <- function(metric, stat, temporal, weekly_stat, week_type
 ##
 ## Run the function for the different combinations:
 
-dat_date <- "C:/Users/gkonstan/OneDrive - Imperial College London/meteo_sri_lanka/data/LinkTimeDateClean.csv"
+dat_date <- "NA"
 
 t_0 <- Sys.time()
 CalculateTemporalStat(metric = "2m_temperature", stat = "mean", temporal = "weekly", 
@@ -193,6 +206,7 @@ CalculateTemporalStat(metric = "specific_humidity", stat = "mean", temporal = "w
 
 CalculateTemporalStat(metric = "relative_humidity", stat = "mean", temporal = "weekly", 
                       weekly_stat = "mean", week_type = "another", dat_date = dat_date)
+
 t_1 <- Sys.time()
 t_1 - t_0 # ~ 6 minutes
 
